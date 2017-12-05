@@ -59,6 +59,7 @@ class DQN(object):
         if self._target_update_countdown <= 0:
             self._target_update_countdown = self._copy_weights_interval
 
+<<<<<<< Updated upstream
             vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
             self.learning_vars = [var for var in vars if "learning" in var.name]
             self.target_vars = [var for var in vars if "target" in var.name]
@@ -66,6 +67,8 @@ class DQN(object):
             for i, x in enumerate(self.target_vars):
                 self.assign_ops.append(self.target_vars[i].assign((self.learning_vars[i])))
 
+=======
+>>>>>>> Stashed changes
             # replace wieghts of target_net with weights of learning_net
 
     # return index of selected action
