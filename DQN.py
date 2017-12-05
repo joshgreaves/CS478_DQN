@@ -33,6 +33,10 @@ class DQN(object):
         self._learning_vars = [var for var in var_list if "LearningNet" in var.name]
         self._target_vars = [var for var in var_list if "TargetNet" in var.name]
 
+        # For replacing target_vars with learning_vars
+        for i, x in enumerate(self.target_vars):
+                self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
+
         # Loss and optimization
         self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1)
         self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action))**2.0)
@@ -58,18 +62,14 @@ class DQN(object):
         self._target_update_countdown -= 1
         if self._target_update_countdown <= 0:
             self._target_update_countdown = self._copy_weights_interval
+            self.reassign_target_weights()
+            
 
-<<<<<<< Updated upstream
-            vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-            self.learning_vars = [var for var in vars if "learning" in var.name]
-            self.target_vars = [var for var in vars if "target" in var.name]
-            self.assign_ops = []
-            for i, x in enumerate(self.target_vars):
-                self.assign_ops.append(self.target_vars[i].assign((self.learning_vars[i])))
-
-=======
->>>>>>> Stashed changes
             # replace wieghts of target_net with weights of learning_net
+
+    def reassign_target_weights(self):
+        for x in self.assign_ops:
+            self.sess.run(x)
 
     # return index of selected action
     def select_action(self, state):
