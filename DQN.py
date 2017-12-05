@@ -17,7 +17,7 @@ class DQN(object):
 		target = r + self.discount * np.max(current_net_q, axis=1)
 
 		loss_vector = target - pred
-		loss = np.sum(np.power(loss_vector, 2))
+		loss = np.sum(np.power(np.clip(loss_vector, -1, 1), 2))
 
 		# learning_net.backwards(loss) Something like this.. Whatever is normal for Tensorflow in backprop
 
