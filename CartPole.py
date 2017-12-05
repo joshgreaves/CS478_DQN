@@ -1,8 +1,7 @@
-import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import gym
 
-from DQN import DQN
-from DQN import DQNNetworkDef
+from DQN import *
 
 
 # Create network architecture
@@ -16,7 +15,18 @@ class CartPoleNetwork(DQNNetworkDef):
                                     activation_fn=None)
 
 
-# Here we should pass in some function which creates our network
-dqn = DQN()
+def main():
+    # Create environment
+    env = gym.make("CartPole-v0")
+    # CartPole has an 4 dimensional observation space and 2 dimensional action space
+    dqn = DQN(CartPoleNetwork(), 4, 2)
 
-# Then we create a train loop where we alternate gathering experience and calling dqn.train
+    for _ in range(10):
+        s = env.reset()
+        for i in range(100):
+            s, r, t, _ = env.step(dqn.select_action(np.reshape(s, [1, -1])))
+            env.render()
+
+
+if __name__ == "__main__":
+    main()

@@ -34,7 +34,7 @@ class DQN(object):
         self._target_vars = [var for var in var_list if "TargetNet" in var.name]
 
         # Loss and optimization
-        self._predicted_return = self._reward + self._gamma * tf.reduce_max(self._target_net, 1)
+        self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1)
         self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action))**2.0)
         self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
@@ -43,21 +43,13 @@ class DQN(object):
         self._sess.run(tf.global_variables_initializer())
 
     def train(self, s, a, r, s_prime, t):
-        learning_net_q = self._learning_net.forward(s)
-        pred = learning_net_q[:, a]
-
-        current_net_q = self._target_net.forward(s_prime)
-        target = r + self._gamma * np.max(current_net_q, axis=1)
-
-        loss_vector = target - pred
-        loss = np.sum(np.power(np.clip(loss_vector, -1, 1), 2))
-
-        # learning_net.backwards(loss) Something like this.. Whatever is normal for Tensorflow in backprop
+        self._sess.run(self._optim, feed_dict={self._state: s, self._action: a, self._state_prime: s_prime,
+                                               self._reward: r, self._terminal: t})
 
         self._current_update_countdown -= 1
         if self._current_update_countdown <= 0:
             self._current_update_countdown = self._copy_weights_interval
-            # replace wieghts of current_net with weights of learning_net
+            # replace weights of current_net with weights of learning_net
 
     # return index of selected action
     def select_action(self, state):
