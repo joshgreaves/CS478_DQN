@@ -23,10 +23,11 @@ class DQN(object):
         self._state_prime = tf.placeholder(tf.float32, [None, self._state_dim])
         self._terminal = tf.placeholder(tf.float32, [None, 1])
 
+        # Learning net is updated every step, target net is updated every self._copy_weights_interval steps
         self._learning_net = self._network.create(self._state, self._state_dim, self._action_dim, scope="LearningNet",
                                                   reuse=False)
-        self._current_net = self._network.create(self._state_prime, self._state_dim, self._action_dim,
-                                                 scope="CurrentNet", reuse=False)
+        self._target_net = self._network.create(self._state_prime, self._state_dim, self._action_dim,
+                                                scope="TargetNet", reuse=False)
 
         self._sess = tf.Session()
         self._sess.run(tf.global_variables_initializer())
@@ -35,7 +36,7 @@ class DQN(object):
         learning_net_q = self._learning_net.forward(s)
         pred = learning_net_q[:, a]
 
-        current_net_q = self._current_net.forward(s_prime)
+        current_net_q = self._target_net.forward(s_prime)
         target = r + self._gamma * np.max(current_net_q, axis=1)
 
         loss_vector = target - pred
@@ -62,7 +63,7 @@ class DQN(object):
         return np.argmax(q_vals, 1)[0]
 
     def episode_step(self, state):
-        return self.select_action(self._current_net.forward(state))
+        return self.select_action(self._target_net.forward(state))
 
 
 class DQNNetworkDef(object):
