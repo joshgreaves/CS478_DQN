@@ -12,7 +12,7 @@ class DQN(object):
         self._action_dim = action_dim
         self._gamma = gamma
         self._copy_weights_interval = copy_weight_interval
-        self._current_update_countdown = copy_weight_interval
+        self._target_update_countdown = copy_weight_interval
         self._epsilon = epsilon
         self._epsilon_decay = epsilon_decay
         self._learning_rate = learning_rate
@@ -34,6 +34,10 @@ class DQN(object):
         self._learning_vars = [var for var in var_list if "LearningNet" in var.name]
         self._target_vars = [var for var in var_list if "TargetNet" in var.name]
 
+        # For replacing target_vars with learning_vars
+        for i, x in enumerate(self.target_vars):
+                self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
+
         # Loss and optimization
         self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1)
         self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action)) ** 2.0)
@@ -44,13 +48,29 @@ class DQN(object):
         self._sess.run(tf.global_variables_initializer())
 
     def train(self, s, a, r, s_prime, t):
-        self._sess.run(self._optim, feed_dict={self._state: s, self._action: a, self._state_prime: s_prime,
-                                               self._reward: r, self._terminal: t})
 
-        self._current_update_countdown -= 1
-        if self._current_update_countdown <= 0:
-            self._current_update_countdown = self._copy_weights_interval
-            # replace weights of current_net with weights of learning_net
+        learning_net_q = self._learning_net.forward(s)
+        pred = learning_net_q[:, a]
+
+        target_net_q = self._target_net.forward(s_prime)
+        target = r + self._gamma * np.max(target_net_q, axis=1)
+
+        loss_vector = target - pred
+        loss = np.sum(np.power(np.clip(loss_vector, -1, 1), 2))
+
+        # learning_net.backwards(loss) Something like this.. Whatever is normal for Tensorflow in backprop
+
+        self._target_update_countdown -= 1
+        if self._target_update_countdown <= 0:
+            self._target_update_countdown = self._copy_weights_interval
+            self.reassign_target_weights()
+            
+
+            # replace wieghts of target_net with weights of learning_net
+
+    def reassign_target_weights(self):
+        for x in self.assign_ops:
+            self.sess.run(x)
 
     # return index of selected action
     def select_action(self, state):
