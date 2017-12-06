@@ -33,9 +33,10 @@ class DQN(object):
         var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         self._learning_vars = [var for var in var_list if "LearningNet" in var.name]
         self._target_vars = [var for var in var_list if "TargetNet" in var.name]
+        self._replace_ops = []
 
         # For replacing target_vars with learning_vars
-        for i, x in enumerate(self.target_vars):
+        for i, x in enumerate(self._target_vars):
                 self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
 
         # Loss and optimization
@@ -48,29 +49,17 @@ class DQN(object):
         self._sess.run(tf.global_variables_initializer())
 
     def train(self, s, a, r, s_prime, t):
-
-        learning_net_q = self._learning_net.forward(s)
-        pred = learning_net_q[:, a]
-
-        target_net_q = self._target_net.forward(s_prime)
-        target = r + self._gamma * np.max(target_net_q, axis=1)
-
-        loss_vector = target - pred
-        loss = np.sum(np.power(np.clip(loss_vector, -1, 1), 2))
-
-        # learning_net.backwards(loss) Something like this.. Whatever is normal for Tensorflow in backprop
+        self._sess.run(self._optim, feed_dict={self._state: s, self._action: a, self._state_prime: s_prime,
+                                               self._reward: r, self._terminal: t})
 
         self._target_update_countdown -= 1
         if self._target_update_countdown <= 0:
             self._target_update_countdown = self._copy_weights_interval
-            self.reassign_target_weights()
-            
+            self.__reassign_target_weights__()
 
-            # replace wieghts of target_net with weights of learning_net
-
-    def reassign_target_weights(self):
-        for x in self.assign_ops:
-            self.sess.run(x)
+    def __reassign_target_weights__(self):
+        for x in self._replace_ops:
+            self._sess.run(x)
 
     # return index of selected action
     def select_action(self, state):
@@ -82,7 +71,7 @@ class DQN(object):
             return best
 
     def select_greedy_action(self, state):
-        q_vals = self._sess.run(self._learning_net, feed_dict={self._state: state})
+        q_vals = self._sess.run(self._target_net, feed_dict={self._state_prime: state})
         return np.argmax(q_vals, 1)[0]
 
     def episode_step(self, state):
