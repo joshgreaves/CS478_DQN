@@ -29,13 +29,14 @@ class DQN(object):
                                                   reuse=False)
         self._target_net = self._network.create(self._state_prime, self._state_dim, self._action_dim,
                                                 scope="TargetNet", reuse=False)
+
         var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         self._learning_vars = [var for var in var_list if "LearningNet" in var.name]
         self._target_vars = [var for var in var_list if "TargetNet" in var.name]
 
         # Loss and optimization
         self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1)
-        self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action))**2.0)
+        self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action)) ** 2.0)
         self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
@@ -66,6 +67,37 @@ class DQN(object):
 
     def episode_step(self, state):
         return self.select_action(self._target_net.forward(state))
+
+
+class MemoryReplay(object):
+    def __init__(self, state_dim, action_dim, max_saved=10000):
+        self._max_saved = max_saved
+        self._state_dim = state_dim
+        self._action_dim = action_dim
+
+        self._states = np.empty([max_saved, state_dim])
+        self._actions = np.empty([max_saved, action_dim])
+        self._state_primes = np.empty([max_saved, state_dim])
+        self._rewards = np.empty([max_saved, 1])
+        self._terminals = np.empty([max_saved, 1])
+
+        self._index = 0
+        self._max_index = 0
+
+    def add(self, s, a, r, s_prime, t):
+        self._states[self._index, :] = s
+        self._actions[self._index, :] = a
+        self._rewards[self._index, 0] = r
+        self._state_primes[self._index, :] = s_prime
+        self._terminals[self._index, :] = t
+
+        self._index = (self._index + 1) % self._max_saved
+        self._max_index = max(self._index, self._max_index)
+
+    def get_batch(self, batch_size=32):
+        indices = np.random.choice(self._max_index, batch_size)
+        return (self._states[indices, :], self._actions[indices, :], self._rewards[indices, :],
+                self._state_primes[indices, :], self._terminals[indices, :])
 
 
 class DQNNetworkDef(object):
