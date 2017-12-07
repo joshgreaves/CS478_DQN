@@ -4,7 +4,7 @@ import random
 
 
 class DQN(object):
-    def __init__(self, network_definition, state_dim, action_dim, gamma=0.95, copy_weight_interval=1000, epsilon=0.1,
+    def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, copy_weight_interval=20, epsilon=0.1,
                  epsilon_decay=1.0, learning_rate=0.001):
         # Cache important info
         self._network = network_definition
@@ -37,11 +37,12 @@ class DQN(object):
 
         # For replacing target_vars with learning_vars
         for i, x in enumerate(self._target_vars):
-                self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
+            self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
 
         # Loss and optimization
-        self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1)
-        self._loss = tf.reduce_mean((self._predicted_return - (self._learning_net * self._action)) ** 2.0)
+        self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1,
+                                                                                             keep_dims=True)
+        self._loss = tf.reduce_mean((self._predicted_return - (self._action * self._learning_net)) ** 2.0)
         self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
