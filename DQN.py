@@ -4,15 +4,13 @@ import random
 
 
 class DQN(object):
-    def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, copy_weight_interval=20, epsilon=0.1,
-                 epsilon_decay=1.0, learning_rate=0.001):
+    def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, epsilon=0.1, epsilon_decay=1.0,
+                 learning_rate=0.001):
         # Cache important info
         self._network = network_definition
         self._state_dim = state_dim
         self._action_dim = action_dim
         self._gamma = gamma
-        self._copy_weights_interval = copy_weight_interval
-        self._target_update_countdown = copy_weight_interval
         self._epsilon = epsilon
         self._epsilon_decay = epsilon_decay
         self._learning_rate = learning_rate
@@ -53,19 +51,16 @@ class DQN(object):
         self._sess.run(self._optim, feed_dict={self._state: s, self._action: a, self._state_prime: s_prime,
                                                self._reward: r, self._terminal: t})
 
-        self._target_update_countdown -= 1
-        if self._target_update_countdown <= 0:
-            self._target_update_countdown = self._copy_weights_interval
-            self.__reassign_target_weights__()
-
-    def __reassign_target_weights__(self):
+    def reassign_target_weights(self):
         for x in self._replace_ops:
             self._sess.run(x)
 
     # return index of selected action
-    def select_action(self, state):
+    def select_action(self, state, decay=True):
         q_vals = self._sess.run(self._learning_net, feed_dict={self._state: state})
         best = np.argmax(q_vals, 1)[0]
+        if decay:
+            self._epsilon *= self._epsilon_decay
         if self._epsilon < random.random():
             return np.random.choice(np.array([i for i in range(self._action_dim) if i != best]))
         else:
