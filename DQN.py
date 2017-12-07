@@ -44,8 +44,11 @@ class DQN(object):
         self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
+        self._saver = tf.train.Saver()
         self._sess = tf.Session()
         self._sess.run(tf.global_variables_initializer())
+
+        self.reassign_target_weights()
 
     def train(self, s, a, r, s_prime, t):
         self._sess.run(self._optim, feed_dict={self._state: s, self._action: a, self._state_prime: s_prime,
@@ -55,23 +58,33 @@ class DQN(object):
         for x in self._replace_ops:
             self._sess.run(x)
 
-    # return index of selected action
+    # return one hot with selected action
     def select_action(self, state, decay=True):
         q_vals = self._sess.run(self._learning_net, feed_dict={self._state: state})
         best = np.argmax(q_vals, 1)[0]
         if decay:
             self._epsilon *= self._epsilon_decay
         if self._epsilon < random.random():
-            return np.random.choice(np.array([i for i in range(self._action_dim) if i != best]))
-        else:
-            return best
+            best = np.random.choice(np.array([i for i in range(self._action_dim) if i != best]))
+
+        a = np.zeros([1, self._action_dim])
+        a[0, best] = 1.0
+        return a
 
     def select_greedy_action(self, state):
         q_vals = self._sess.run(self._target_net, feed_dict={self._state_prime: state})
-        return np.argmax(q_vals, 1)[0]
+        a = np.zeros([1, self._action_dim])
+        a[0, np.argmax(q_vals, 1)[0]] = 1.0
+        return a
 
     def episode_step(self, state):
         return self.select_action(self._target_net.forward(state))
+
+    def save(self, path):
+        self._saver.save(self._sess, path)
+
+    def load(self, path):
+        self._saver.restore(self._sess, path)
 
 
 class MemoryReplay(object):
