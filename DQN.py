@@ -38,10 +38,10 @@ class DQN(object):
             self._replace_ops.append(self._target_vars[i].assign((self._learning_vars[i])))
 
         # Loss and optimization
-        self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1,
-                                                                                             keep_dims=True)
+        self._predicted_return = self._reward + (1 - self._terminal) * self._gamma * tf.reduce_max(self._target_net, 1,
+                                                                                                   keep_dims=True)
         self._loss = tf.reduce_mean((self._predicted_return - (self._action * self._learning_net)) ** 2.0)
-        self._optim = tf.train.AdamOptimizer(self._learning_rate, beta1=0.5).minimize(self._loss, var_list=self._learning_vars)
+        self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
         self._saver = tf.train.Saver()
