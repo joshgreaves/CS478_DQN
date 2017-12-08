@@ -69,8 +69,8 @@ def main():
     num_actions = NUM_ACTIONS
 
     dqn = DQN(DoomNetwork(height, width, channels), height * width, num_actions, epsilon=0.05, num_stacked=channels)
-    # dqn.load(".saves/doom_19.ckpt")
-    memory = MemoryReplay(height * width, num_actions, max_saved=5000, num_stacked=channels)
+    # dqn.load(".saves/doom_basic_719.ckpt")
+    memory = MemoryReplay(height * width, num_actions, max_saved=10000, num_stacked=channels)
 
     for epoch in range(1000):
 
