@@ -41,7 +41,7 @@ class DQN(object):
         self._predicted_return = self._reward + self._terminal * self._gamma * tf.reduce_max(self._target_net, 1,
                                                                                              keep_dims=True)
         self._loss = tf.reduce_mean((self._predicted_return - (self._action * self._learning_net)) ** 2.0)
-        self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
+        self._optim = tf.train.AdamOptimizer(self._learning_rate, beta1=0.5).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
         self._saver = tf.train.Saver()
@@ -64,7 +64,7 @@ class DQN(object):
         best = np.argmax(q_vals, 1)[0]
         if decay:
             self._epsilon *= self._epsilon_decay
-        if self._epsilon < random.random():
+        if random.random() < self._epsilon:
             best = np.random.choice(np.array([i for i in range(self._action_dim) if i != best]))
 
         a = np.zeros([1, self._action_dim])

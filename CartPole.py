@@ -21,7 +21,7 @@ class CartPoleNetwork(DQNNetworkDef):
 def main():
     env = gym.make("CartPole-v0")
     # CartPole has an 4 dimensional observation space and 2 dimensional action space
-    dqn = DQN(CartPoleNetwork(), 4, 2, epsilon=0.05)
+    dqn = DQN(CartPoleNetwork(), 4, 2, epsilon=0.05, gamma=0.9)
     memory = MemoryReplay(4, 2, max_saved=100000)
 
     for epoch in tqdm(range(1000)):
@@ -31,20 +31,20 @@ def main():
         for i in range(100):
             a = dqn.select_action(np.reshape(s, [1, -1]))
             s_prime, r, t, _ = env.step(np.argmax(a))
-            memory.add(s, a, r-1, s_prime, t)
+            memory.add(s, a, 1 * (-1 * t), s_prime, t)
             s = s_prime
 
             if t:
                 break
 
         # Train on that experience
-        for i in range(100):
+        for i in range(20):
             dqn.train(*memory.get_batch())
 
         dqn.reassign_target_weights()
 
         s = env.reset()
-        for i in range(100):
+        for i in range(1000):
             a = dqn.select_greedy_action(np.reshape(s, [1, -1]))
             env.render()
             s, _, t, _ = env.step(np.argmax(a))
