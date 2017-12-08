@@ -5,10 +5,10 @@ import random
 
 class DQN(object):
     def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, epsilon=0.1, epsilon_decay=1.0,
-                 learning_rate=0.001):
+                 learning_rate=0.001, num_stacked=1):
         # Cache important info
         self._network = network_definition
-        self._state_dim = state_dim
+        self._state_dim = state_dim * num_stacked
         self._action_dim = action_dim
         self._gamma = gamma
         self._epsilon = epsilon
@@ -88,14 +88,15 @@ class DQN(object):
 
 
 class MemoryReplay(object):
-    def __init__(self, state_dim, action_dim, max_saved=10000):
+    def __init__(self, state_dim, action_dim, max_saved=10000, num_stacked=1):
         self._max_saved = max_saved
         self._state_dim = state_dim
         self._action_dim = action_dim
+        self._num_stacked = num_stacked
 
-        self._states = np.empty([max_saved, state_dim])
+        self._states = np.empty([max_saved, num_stacked * state_dim])
         self._actions = np.empty([max_saved, action_dim])
-        self._state_primes = np.empty([max_saved, state_dim])
+        self._state_primes = np.empty([max_saved, num_stacked * state_dim])
         self._rewards = np.empty([max_saved, 1])
         self._terminals = np.empty([max_saved, 1])
 
