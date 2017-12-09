@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 from __future__ import print_function
 
->>>>>>> 9d74dce8b90b26bafcb7463d0ebe0977977f4410
 import tensorflow.contrib.slim as slim
 import gym
 from tqdm import tqdm
@@ -33,7 +30,22 @@ class AtariNetwork(DQNNetworkDef):
 
 def preprocess(s):
     luminance = 0.299 * s[:, :, 0] + 0.587 * s[:, :, 1] + 0.114 * s[:, :, 2]
-    return cv2.resize(luminance, (84, 84))
+    return cv2.resize(luminance / 255.0, (84, 84))
+
+def multiframe_step(env, a, render=False):
+    r_total = 0
+    for i in range(3):
+        s_prime, r, t, _ = env.step(a)
+        r_total += r
+        if render:
+            env.render()
+
+    s_current_prime, r, t, _ = env.step(a)
+    r_total += r
+    if render:
+        env.render()
+    current_frame = np.maximum(s_prime, s_current_prime)
+    return current_frame, r_total, t, _
 
 
 def main():
@@ -42,25 +54,30 @@ def main():
     width = 84
     channels = 4
     num_actions = 18
-    dqn = DQN(AtariNetwork(height, width, channels), height * width, num_actions, epsilon=1.0, epsilon_decay=0.999, num_stacked=channels, learning_rate=0.1)
-    memory = MemoryReplay(height * width, num_actions, max_saved=10000, num_stacked=channels)
+    dqn = DQN(AtariNetwork(height, width, channels), height * width, num_actions, num_stacked=channels)
+    memory = MemoryReplay(height * width, num_actions, max_saved=200000, num_stacked=channels)
 
-    for epoch in tqdm(range(1000)):
-
+    for epoch in tqdm(range(10000)):
+        total_reward = 0
         # Gain experience
         for _ in range(1):
-            s = env.reset()
-            s = preprocess(s)
-            s = np.array([s, s, s, s])
+            s = np.zeros([84, 84, 4])
+            s[:, :, 0] = preprocess(env.reset())
             for i in range(100):
-                # if epoch % 5 == 0:
-                #     env.render()
                 a = dqn.select_action(np.reshape(s, [1, -1]))
-                s_prime, r, t, _ = env.step(np.argmax(a))
-                s_prime = preprocess(s_prime)
-                s_prime = np.roll(s, 1, axis=0)
-                s_prime[0] = np.maximum(s_prime[1], s_prime[0])
+                current_frame, r, t, _ = multiframe_step(env, np.argmax(a))
+                total_reward += r
+                s_prime = np.roll(s, 1, axis=2)
+                s_prime[:, :, 0] = preprocess(current_frame)
                 memory.add(s.reshape([-1]), a, r-1, s_prime.reshape([-1]), t)
+
+                if i > 4:
+                    for j in range(4):
+                        cv2.imshow("test s " + str(j), s[:, :, j])
+                        cv2.imshow("test s' " + str(j), s_prime[:, :, j])
+                    cv2.waitKey()
+                    cv2.destroyAllWindows()
+
                 s = s_prime
 
                 if t:
@@ -68,25 +85,40 @@ def main():
 
         #print(epoch, ": ", total_reward)
 
-        # Train on that experience
-        # for i in range(min((epoch + 1) * 5, 250)):
         for i in range(25):
             dqn.train(*memory.get_batch())
 
         dqn.reassign_target_weights()
 
-        if (epoch + 1) % 25 == 0:
+        print(epoch, ": ", total_reward, " Epsilon: ", dqn._epsilon)
+        
+        if (epoch + 1) % 100 == 0:
             s = env.reset()
             s = preprocess(s)
             s = np.array([s, s, s, s])
             for i in range(100):
                 a = dqn.select_greedy_action(np.reshape(s, [1, -1]))
-                env.render()
-                s_prime, _, t, _ = env.step(np.argmax(a))
+                s_prime, _, t, _ = multiframe_step(env, np.argmax(a), render=True)
                 s = np.roll(s, 1, axis=0)
                 s[0] = preprocess(s_prime)
                 if t:
                     break
+
+        if (epoch + 1) % 50 == 0:
+            dqn.save(".saves/atari_boxing" + str(epoch) + ".ckpt")
+
+    for i in range(1000):
+        s = env.reset()
+        s = preprocess(s)
+        s = np.array([s, s, s, s])
+        for i in range(100):
+            a = dqn.select_greedy_action(np.reshape(s, [1, -1]))
+            s_prime, _, t, _ = multiframe_step(env, np.argmax(a), render=True)
+            s = np.roll(s, 1, axis=0)
+            s[0] = preprocess(s_prime)
+            if t:
+                break
+
 
 if __name__ == "__main__":
     main()
