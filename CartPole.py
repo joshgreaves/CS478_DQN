@@ -21,7 +21,7 @@ class CartPoleNetwork(DQNNetworkDef):
 def main():
     env = gym.make("CartPole-v0")
     # CartPole has an 4 dimensional observation space and 2 dimensional action space
-    dqn = DQN(CartPoleNetwork(), 4, 2, epsilon=0.05, gamma=0.99)
+    dqn = DQN(CartPoleNetwork(), 4, 2)
     memory = MemoryReplay(4, 2, max_saved=10000)
 
     for epoch in tqdm(range(1000)):

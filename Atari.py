@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+from __future__ import print_function
+
+>>>>>>> 9d74dce8b90b26bafcb7463d0ebe0977977f4410
 import tensorflow.contrib.slim as slim
 import gym
 from tqdm import tqdm
