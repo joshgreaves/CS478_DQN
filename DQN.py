@@ -3,16 +3,26 @@ import tensorflow as tf
 import random
 
 
+def default_train_fn(loss, learning_rate, var_list=None):
+    if var_list:
+        return tf.train.RMSPropOptimizer(learning_rate).minimize(loss, var_list=var_list)
+    else:
+        return tf.train.RMSPropOptimizer(learning_rate).minimize(loss)
+
+
 class DQN(object):
-    def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, epsilon=0.1, epsilon_decay=1.0,
-                 learning_rate=0.001, num_stacked=1):
+    def __init__(self, network_definition, state_dim, action_dim, gamma=0.99, epsilon_max=1.0, epsilon_min=0.1,
+                 epsilon_steps=1000000, learning_rate=0.001, num_stacked=1, train_fn=default_train_fn):
         # Cache important info
         self._network = network_definition
         self._state_dim = state_dim * num_stacked
         self._action_dim = action_dim
         self._gamma = gamma
-        self._epsilon = epsilon
-        self._epsilon_decay = epsilon_decay
+        self._epsilon = epsilon_max
+        self._epsilon_max = epsilon_max
+        self._epsilon_min = epsilon_min
+        self._epsilon_steps = epsilon_steps
+        self._epsilon_current_steps = 0.0
         self._learning_rate = learning_rate
 
         # Create networks
@@ -42,7 +52,7 @@ class DQN(object):
                                                                                                    keep_dims=True)
         self._loss = tf.reduce_mean((self._predicted_return - tf.reduce_sum(self._action * self._learning_net, 1,
                                                                             keep_dims=True)) ** 2.0)
-        self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
+        self._optim = train_fn(self._loss, self._learning_rate, self._learning_vars)
 
         # Tensorflow init
         self._saver = tf.train.Saver()
@@ -63,10 +73,13 @@ class DQN(object):
     def select_action(self, state, decay=True):
         q_vals = self._sess.run(self._learning_net, feed_dict={self._state: state})
         best = np.argmax(q_vals, 1)[0]
-        if decay:
-            self._epsilon *= self._epsilon_decay
         if random.random() < self._epsilon:
             best = np.random.choice(np.array([i for i in range(self._action_dim) if i != best]))
+
+        if decay and self._epsilon_current_steps < self._epsilon_steps:
+            self._epsilon_current_steps += 1
+            ratio = self._epsilon_current_steps / self._epsilon_steps
+            self._epsilon = (1 - ratio) * self._epsilon_max + ratio * self._epsilon_min
 
         a = np.zeros([1, self._action_dim])
         a[0, best] = 1.0
