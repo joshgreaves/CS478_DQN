@@ -42,7 +42,7 @@ class DQN(object):
                                                                                                    keep_dims=True)
         self._loss = tf.reduce_mean((self._predicted_return - tf.reduce_sum(self._action * self._learning_net, 1,
                                                                             keep_dims=True)) ** 2.0)
-        self._optim = tf.train.AdamOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
+        self._optim = tf.train.GradientDescentOptimizer(self._learning_rate).minimize(self._loss, var_list=self._learning_vars)
 
         # Tensorflow init
         self._saver = tf.train.Saver()
