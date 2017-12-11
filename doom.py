@@ -60,7 +60,10 @@ def process_image(img):
 def main():
     # Doom has an 480x640x3 dimensional observation space and 43 multi discrete action space
     # However, we resize it to 1/4 the size (120, 160)
-    env = gym.make('ppaquette/DoomTakeCover-v0')
+
+    # doom_basic2_79 works fairly well
+
+    env = gym.make('ppaquette/DoomDefendLine-v0')
     height = 120
     width = 160
     channels = 4
@@ -68,8 +71,8 @@ def main():
 
     dqn = DQN(DoomNetwork(height, width, channels), height * width, num_actions, num_stacked=channels, epsilon_max=1.0,
               epsilon_min=0.1, epsilon_steps=10000)
-    dqn.load(".saves/doom_basic_119.ckpt")
-    memory = MemoryReplay(height * width, num_actions, max_saved=10000, num_stacked=channels)
+    # dqn.load(".saves/doom_basic2_79.ckpt")
+    memory = MemoryReplay(height * width, num_actions, max_saved=7500, num_stacked=channels)
 
     current_steps = 0
 
@@ -78,7 +81,6 @@ def main():
         # Gain experience
         total_reward = 0
         s = np.zeros([120, 160, 4])
-        s_prime = np.zeros([120, 160, 4])
         s[:, :, 0] = process_image(env.reset())
         for i in range(10000):
             a = dqn.select_action(np.reshape(s, [1, -1]))
@@ -101,8 +103,22 @@ def main():
 
         print(epoch, ": ", total_reward, ", ", dqn._epsilon)
 
+        s = np.zeros([120, 160, 4])
+        s[:, :, 0] = process_image(env.reset())
+        for i in range(200):
+            a = dqn.select_greedy_action(np.reshape(s, [1, -1]))
+            action = DOOM_ACTIONS[a.reshape([-1]) == 1.0]
+            s2, _, t, _ = env.step(action.reshape([-1]))
+            s = np.roll(s, 1, axis=2)
+            s[:, :, 0] = process_image(s2)
+
+            env.render()
+
+            if t:
+                break
+
         if (epoch + 1) % 20 == 0:
-           dqn.save(".saves/doom_take_cover_" + str(epoch) + ".ckpt")
+           dqn.save(".saves/doom_defend_line_" + str(epoch) + ".ckpt")
 
 
 if __name__ == "__main__":
