@@ -100,6 +100,10 @@ class DQN(object):
     def load(self, path):
         self._saver.restore(self._sess, path)
 
+    def close(self):
+        tf.reset_default_graph()
+        self._sess.close()
+
 
 class MemoryReplay(object):
     def __init__(self, state_dim, action_dim, max_saved=10000, num_stacked=1):
