@@ -57,6 +57,12 @@ def process_image(img):
 
 
 def main():
+    # For ease
+    should_save = False
+    should_load = True
+    save_path = ".saves/doom_basic_take2_"
+    load_path = ".saves/doom_basic_take2_399.ckpt"
+
     # Doom has an 480x640x3 dimensional observation space and 43 multi discrete action space
     # However, we resize it to 1/4 the size (120, 160)
     env = gym.make('ppaquette/DoomBasic-v0')
@@ -66,8 +72,10 @@ def main():
     num_actions = NUM_ACTIONS
 
     dqn = DQN(DoomNetwork(height, width, channels), height * width, num_actions, num_stacked=channels)
-    # dqn.load(".saves/doom_basic_719.ckpt")
-    memory = MemoryReplay(height * width, num_actions, max_saved=100000, num_stacked=channels)
+    memory = MemoryReplay(height * width, num_actions, max_saved=10000, num_stacked=channels)
+
+    if should_load:
+        dqn.load(load_path)
 
     for epoch in range(10000):
 
@@ -77,20 +85,20 @@ def main():
         s_prime = np.zeros([120, 160, 4])
         s[:, :, 0] = process_image(env.reset())
         for i in range(10000):
-            a = dqn.select_action(np.reshape(s, [1, -1]))
+            a = dqn.select_greedy_action(np.reshape(s, [1, -1]))
             action = DOOM_ACTIONS[a.reshape([-1]) == 1.0]
             s2, r, t, _ = env.step(action.reshape([-1]))
             total_reward += r
             s_prime[:, :, 1:] = s_prime[:, :, :3]
-            s_prime[:, :, 0] = process_image(s_prime)
+            s_prime[:, :, 0] = process_image(s2)
             memory.add(np.reshape(s, [-1]), a, r, np.reshape(s_prime, [-1]), t)
-            # env.render()
+            env.render()
             s = s_prime
 
             if t:
                 break
 
-        print(epoch, ": ", total_reward)
+        print(epoch, ": ", total_reward, ", ", dqn._epsilon)
 
         # Train on that experience
         # for i in range(min((epoch + 1) * 5, 250)):
@@ -99,8 +107,8 @@ def main():
 
         dqn.reassign_target_weights()
 
-        #if (epoch + 1) % 20 == 0:
-        #    dqn.save(".saves/doom_basic_" + str(epoch) + ".ckpt")
+        if should_save and (epoch + 1) % 100 == 0:
+           dqn.save(save_path + str(epoch) + ".ckpt")
 
 
 if __name__ == "__main__":
