@@ -7,6 +7,7 @@ import ppaquette_gym_doom
 from tqdm import tqdm
 import numpy as np
 import cv2
+import time
 
 from DQN import *
 
@@ -53,21 +54,24 @@ def process_image(img):
     # Convert to grayscale and flatten
     grayscale = np.mean(img, 2)
     smaller = cv2.resize(grayscale, (160, 120))
-    return smaller
+    return smaller / 255.0
 
 
 def main():
     # Doom has an 480x640x3 dimensional observation space and 43 multi discrete action space
     # However, we resize it to 1/4 the size (120, 160)
-    env = gym.make('ppaquette/DoomBasic-v0')
+    env = gym.make('ppaquette/DoomTakeCover-v0')
     height = 120
     width = 160
     channels = 4
     num_actions = NUM_ACTIONS
 
-    dqn = DQN(DoomNetwork(height, width, channels), height * width, num_actions, num_stacked=channels)
-    # dqn.load(".saves/doom_basic_719.ckpt")
-    memory = MemoryReplay(height * width, num_actions, max_saved=100000, num_stacked=channels)
+    dqn = DQN(DoomNetwork(height, width, channels), height * width, num_actions, num_stacked=channels, epsilon_max=1.0,
+              epsilon_min=0.1, epsilon_steps=10000)
+    dqn.load(".saves/doom_basic_119.ckpt")
+    memory = MemoryReplay(height * width, num_actions, max_saved=10000, num_stacked=channels)
+
+    current_steps = 0
 
     for epoch in range(10000):
 
@@ -81,26 +85,24 @@ def main():
             action = DOOM_ACTIONS[a.reshape([-1]) == 1.0]
             s2, r, t, _ = env.step(action.reshape([-1]))
             total_reward += r
-            s_prime[:, :, 1:] = s_prime[:, :, :3]
-            s_prime[:, :, 0] = process_image(s_prime)
+            s_prime = np.roll(s, 1, axis=2)
+            s_prime[:, :, 0] = process_image(s2)
             memory.add(np.reshape(s, [-1]), a, r, np.reshape(s_prime, [-1]), t)
             # env.render()
             s = s_prime
 
+            dqn.train(*memory.get_batch())
+            current_steps = (current_steps + 1) % 25
+            if current_steps == 0:
+                dqn.reassign_target_weights()
+
             if t:
                 break
 
-        print(epoch, ": ", total_reward)
+        print(epoch, ": ", total_reward, ", ", dqn._epsilon)
 
-        # Train on that experience
-        # for i in range(min((epoch + 1) * 5, 250)):
-        for i in range(100):
-            dqn.train(*memory.get_batch())
-
-        dqn.reassign_target_weights()
-
-        #if (epoch + 1) % 20 == 0:
-        #    dqn.save(".saves/doom_basic_" + str(epoch) + ".ckpt")
+        if (epoch + 1) % 20 == 0:
+           dqn.save(".saves/doom_take_cover_" + str(epoch) + ".ckpt")
 
 
 if __name__ == "__main__":
