@@ -80,26 +80,36 @@ def main():
 
         # Gain experience
         total_reward = 0
+        imgs = np.zeros([480, 640, 3, 4])
         s = np.zeros([120, 160, 4])
-        s[:, :, 0] = process_image(env.reset())
+        imgs[:, :, :, 0] = env.reset()
+        s[:, :, 0] = process_image(imgs[:, :, :, 0])
+        s_prime = None
         for i in range(10000):
+            imgs = np.roll(imgs, 1, axis=3)
             a = dqn.select_action(np.reshape(s, [1, -1]))
             action = DOOM_ACTIONS[a.reshape([-1]) == 1.0]
-            s2, r, t, _ = env.step(action.reshape([-1]))
+            imgs[:, :, :, 0], r, t, _ = env.step(action.reshape([-1]))
             total_reward += r
             s_prime = np.roll(s, 1, axis=2)
-            s_prime[:, :, 0] = process_image(s2)
+            s_prime[:, :, 0] = process_image(imgs[:, :, :, 0])
             memory.add(np.reshape(s, [-1]), a, r, np.reshape(s_prime, [-1]), t)
             # env.render()
             s = s_prime
 
-            dqn.train(*memory.get_batch())
-            current_steps = (current_steps + 1) % 25
-            if current_steps == 0:
-                dqn.reassign_target_weights()
+            #dqn.train(*memory.get_batch())
+            #current_steps = (current_steps + 1) % 25
+            #if current_steps == 0:
+            #    dqn.reassign_target_weights()
 
             if t:
                 break
+
+        for i in range(4):
+            cv2.imwrite("img/reg" + str(i) + ".png", cv2.cvtColor(imgs[:, :, :, i].astype(np.uint8), cv2.COLOR_RGB2BGR))
+            cv2.imwrite("img/processed" + str(i) + ".png", (s_prime[:, :, i] * 255).astype(np.uint8))
+
+        exit()
 
         print(epoch, ": ", total_reward, ", ", dqn._epsilon)
 
